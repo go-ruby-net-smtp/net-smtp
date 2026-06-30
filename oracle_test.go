@@ -6,15 +6,23 @@ package netsmtp
 
 import (
 	"os/exec"
+	"runtime"
 	"strings"
 	"testing"
 )
 
 // rubyBin locates a usable `ruby` once. The oracle tests skip themselves when it
-// is absent (the qemu cross-arch lanes and the Windows lane), so the deterministic
-// suite alone drives the 100% gate there.
+// is absent (the qemu cross-arch lanes), so the deterministic suite alone drives
+// the 100% gate there. They also skip on Windows: the GitHub Windows runner does
+// ship a `ruby`, but passing binary control bytes (CR/LF, NUL, high bytes) through
+// the Windows process-argument layer is not faithful, so the oracle would compare
+// mangled inputs. The differential oracle runs on the ubuntu/macos lanes, which is
+// where MRI parity is asserted; the deterministic suite covers Windows.
 func rubyBin(t *testing.T) string {
 	t.Helper()
+	if runtime.GOOS == "windows" {
+		t.Skip("MRI oracle skipped on Windows (argv binary-byte fidelity); deterministic suite covers it")
+	}
 	path, err := exec.LookPath("ruby")
 	if err != nil {
 		t.Skip("ruby not on PATH; skipping MRI oracle")
